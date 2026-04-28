@@ -1,0 +1,67 @@
+{
+  "entities": {
+    "Asset": {
+      "title": "Asset",
+      "description": "An official sports media asset being protected.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "size": { "type": "string" },
+        "type": { "type": "string", "enum": ["Video", "Image", "Archive", "Document"] },
+        "status": { "type": "string", "enum": ["Processing", "Processed", "Failed"] },
+        "fingerprint": { "type": "string" },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "type", "status", "ownerId", "createdAt"]
+    },
+    "Violation": {
+      "title": "Violation",
+      "description": "A detected unauthorized use of an asset.",
+      "type": "object",
+      "properties": {
+        "assetId": { "type": "string" },
+        "assetName": { "type": "string" },
+        "platform": { "type": "string" },
+        "matchScore": { "type": "number" },
+        "riskLevel": { "type": "string", "enum": ["Critical", "High", "Medium", "Low", "Review"] },
+        "status": { "type": "string", "enum": ["Open", "Under Review", "Resolved", "Processing"] },
+        "detectedOn": { "type": "string", "format": "date-time" },
+        "url": { "type": "string" },
+        "thumbnail": { "type": "string" },
+        "ownerId": { "type": "string" }
+      },
+      "required": ["assetId", "assetName", "platform", "matchScore", "riskLevel", "status", "detectedOn", "ownerId"]
+    },
+    "LegalNotice": {
+      "title": "Legal Notice",
+      "description": "A takedown notice generated for a violation.",
+      "type": "object",
+      "properties": {
+        "violationId": { "type": "string" },
+        "type": { "type": "string", "enum": ["DMCA Takedown Request", "IP Infringement Notice", "Cease & Desist"] },
+        "platform": { "type": "string" },
+        "infringingUrl": { "type": "string" },
+        "additionalNotes": { "type": "string" },
+        "status": { "type": "string", "enum": ["Draft", "Sent", "Accepted", "Rejected"] },
+        "ownerId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["violationId", "type", "platform", "infringingUrl", "status", "ownerId", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/assets/{assetId}": {
+      "schema": "Asset",
+      "description": "Collection of protected official media assets."
+    },
+    "/violations/{violationId}": {
+      "schema": "Violation",
+      "description": "Collection of detected media violations."
+    },
+    "/legal_notices/{noticeId}": {
+      "schema": "LegalNotice",
+      "description": "Collection of legal takedown notices."
+    }
+  }
+}

@@ -1,0 +1,117 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helpers ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(data) {
+      return isSignedIn() && data.ownerId == request.auth.uid;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- Asset Validation ---
+    function isValidAsset(data) {
+      return data.keys().hasAll(['name', 'type', 'status', 'ownerId', 'createdAt', 'size']) &&
+             data.keys().size() == 6 &&
+             data.name is string && data.name.size() <= 200 &&
+             data.type in ['Video', 'Image', 'Archive', 'Document'] &&
+             data.size is string && data.size.size() <= 50 &&
+             data.status in ['Processing', 'Processed', 'Failed'] &&
+             data.ownerId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    // --- Violation Validation ---
+    function isValidViolation(data) {
+      return data.keys().hasAll(['assetId', 'assetName', 'platform', 'matchScore', 'riskLevel', 'status', 'detectedOn', 'ownerId']) &&
+             data.assetId is string && isValidId(data.assetId) &&
+             data.assetName is string && data.assetName.size() <= 200 &&
+             data.platform is string && data.platform.size() <= 100 &&
+             data.matchScore is number && data.matchScore >= 0 && data.matchScore <= 100 &&
+             data.riskLevel in ['Critical', 'High', 'Medium', 'Low', 'Review'] &&
+             data.status in ['Open', 'Under Review', 'Resolved', 'Processing'] &&
+             data.detectedOn is timestamp &&
+             data.ownerId == request.auth.uid;
+    }
+
+    // --- LegalNotice Validation ---
+    function isValidLegalNotice(data) {
+      return data.keys().hasAll(['violationId', 'type', 'platform', 'infringingUrl', 'status', 'ownerId', 'createdAt']) &&
+             data.violationId is string && isValidId(data.violationId) &&
+             data.type in ['DMCA Takedown Request', 'IP Infringement Notice', 'Cease & Desist'] &&
+             data.platform is string && data.platform.size() <= 100 &&
+             data.infringingUrl is string && data.infringingUrl.size() <= 2000 &&
+             data.status in ['Draft', 'Sent', 'Accepted', 'Rejected'] &&
+             data.ownerId == request.auth.uid &&
+             data.createdAt == request.time;
+    }
+
+    // --- Collection Routes ---
+
+    match /assets/{assetId} {
+      allow get: if isSignedIn() && isOwner(existing());
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      
+      allow create: if isSignedIn() && isValidId(assetId) && isValidAsset(incoming());
+      
+      allow update: if isSignedIn() && isOwner(existing()) && 
+                    incoming().ownerId == existing().ownerId &&
+                    incoming().createdAt == existing().createdAt &&
+                    isValidAsset(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status']);
+      
+      allow delete: if isSignedIn() && isOwner(existing());
+    }
+
+    match /violations/{violationId} {
+      allow get: if isSignedIn() && isOwner(existing());
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      
+      allow create: if isSignedIn() && isValidId(violationId) && isValidViolation(incoming()) &&
+                    exists(/databases/$(database)/documents/assets/$(incoming().assetId));
+      
+      allow update: if isSignedIn() && isOwner(existing()) &&
+                    incoming().ownerId == existing().ownerId &&
+                    incoming().assetId == existing().assetId &&
+                    isValidViolation(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'riskLevel']);
+      
+      allow delete: if isSignedIn() && isOwner(existing());
+    }
+
+    match /legal_notices/{noticeId} {
+      allow get: if isSignedIn() && isOwner(existing());
+      allow list: if isSignedIn() && existing().ownerId == request.auth.uid;
+      
+      allow create: if isSignedIn() && isValidId(noticeId) && isValidLegalNotice(incoming()) &&
+                    exists(/databases/$(database)/documents/violations/$(incoming().violationId));
+      
+      allow update: if isSignedIn() && isOwner(existing()) &&
+                    incoming().ownerId == existing().ownerId &&
+                    incoming().violationId == existing().violationId &&
+                    incoming().createdAt == existing().createdAt &&
+                    isValidLegalNotice(incoming()) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['status', 'additionalNotes']);
+      
+      allow delete: if isSignedIn() && isOwner(existing());
+    }
+  }
+}

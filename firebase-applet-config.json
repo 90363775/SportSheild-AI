@@ -1,0 +1,10 @@
+{
+  "projectId": "sportsheild-ai",
+  "appId": "1:711566773996:web:45d8621ca272981dec9fc9",
+  "apiKey": "AIzaSyCpARBSRvZ7hWmcpjEfpRT7Gj7O4YWyJBk",
+  "authDomain": "sportsheild-ai.firebaseapp.com",
+  "storageBucket": "sportsheild-ai.firebasestorage.app",
+  "messagingSenderId": "711566773996",
+  "measurementId": "G-PVWWW8TJLQ",
+  "firestoreDatabaseId": "(default)"
+}
